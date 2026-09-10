@@ -1122,6 +1122,24 @@
     applySearch();
   });
 
+  const searchWrapEl = document.getElementById('searchWrap');
+  const searchToggleEl = document.getElementById('searchToggle');
+  searchToggleEl.addEventListener('click', () => {
+    searchWrapEl.classList.add('is-expanded');
+    searchEl.focus();
+  });
+  searchEl.addEventListener('blur', () => {
+    if(!searchEl.value.trim()) searchWrapEl.classList.remove('is-expanded');
+  });
+  searchEl.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape'){
+      searchEl.value = '';
+      currentQuery = '';
+      applySearch();
+      searchEl.blur();
+    }
+  });
+
   document.querySelectorAll('.filter-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       if(btn.dataset.filter !== 'all' && !profile){ openProfileForm(); return; }
