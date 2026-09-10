@@ -264,7 +264,6 @@ h1{
 .filter-chip-link{
   display: inline-block;
   text-decoration: none;
-  margin-left: auto;
   color: var(--accent);
   border-color: var(--accent-soft);
   background: var(--accent-soft);
