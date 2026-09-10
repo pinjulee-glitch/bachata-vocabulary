@@ -27,6 +27,9 @@
   function playIconSvg(){
     return '<svg class="play-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M5 3l16 9-16 9V3z"/></svg>';
   }
+  function openIconSvg(){
+    return '<svg class="open-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
+  }
 
   // ---- Video resolution ----
   // Every clip is stored either as a Google Drive file id (driveId) or a
@@ -40,11 +43,6 @@
     m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     if(m) return m[1];
     return null;
-  }
-
-  function isIOS(){
-    return /iP(hone|od|ad)/.test(navigator.userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   }
 
   function resolveVideo(mv){
@@ -98,18 +96,17 @@
     const embed = () => {
       preview.innerHTML = `<iframe class="clip-frame" src="${info.embedUrl}" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe>`;
     };
-    if(info.kind === 'drive' && isIOS()){
-      // Google Drive's embeddable /preview renders as a permanent black
-      // box inside an iframe on iOS Safari — a known Drive/Safari bug, not
-      // fixable from here. Open Drive's own viewer instead of embedding.
+    if(info.kind === 'drive'){
+      // Drive's embeddable iframe has proven unreliable across devices
+      // (renders as a black box on iOS Safari, sometimes errors outright
+      // elsewhere). Show a looping GIF preview instead — nothing to load
+      // or fail — and open the full clip in Drive's own viewer on tap.
       preview.innerHTML = `
-        <a class="clip-thumb-btn" href="${info.viewUrl}" target="_blank" rel="noopener noreferrer" title="Play clip">
-          <img class="clip-thumb-img" src="${info.thumb}" loading="lazy" alt="">
-          <span class="play-badge">${playIconSvg()}</span>
+        <a class="clip-thumb-btn" href="${info.viewUrl}" target="_blank" rel="noopener noreferrer" title="Open clip in Drive">
+          <img class="clip-thumb-img" src="gifs/${mv.id}.gif" loading="lazy" alt="" onerror="this.onerror=null;this.src='${info.thumb}';">
+          <span class="play-badge">${openIconSvg()}</span>
         </a>`;
-      return;
-    }
-    if(info.kind === 'drive' || (info.kind === 'embed' && info.thumb)){
+    } else if(info.kind === 'embed' && info.thumb){
       preview.innerHTML = `
         <button type="button" class="clip-thumb-btn" title="Play clip">
           <img class="clip-thumb-img" src="${info.thumb}" loading="lazy" alt="">
