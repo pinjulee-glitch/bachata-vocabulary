@@ -280,7 +280,7 @@ h1{
 }
 .filter-row-label + .filter-row{ margin-top: 6px; }
 
-.search-wrap{ position: relative; }
+.search-wrap{ position: relative; margin-top: 16px; }
 .search-wrap svg{
   position: absolute;
   left: 14px;
