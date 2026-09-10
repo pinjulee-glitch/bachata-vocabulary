@@ -625,23 +625,37 @@
     const isOpen = openCats.has(cat.id);
     section.dataset.open = isOpen ? 'true' : 'false';
 
+    // The category card's photo is the first move in it that has a Drive
+    // clip — just a representative preview, like a course's cover image.
+    const coverMove = cat.moves.find(m => m.driveId || m.videoUrl);
+    const photoHtml = coverMove
+      ? `<img class="cat-photo-img" src="gifs/${coverMove.id}.gif" loading="lazy" alt="" onerror="this.onerror=null;this.src='https://drive.google.com/thumbnail?id=${coverMove.driveId || ''}&sz=w400';">`
+      : `<span class="cat-photo-placeholder">${plusIconSvg()}</span>`;
+
     section.innerHTML = `
-      <div class="cat-head-wrap">
+      <button type="button" class="cat-photo-btn" title="${escapeHtml(cat.title)}">
+        <div class="cat-photo">${photoHtml}</div>
+      </button>
+      <div class="cat-info">
         <button type="button" class="cat-head-toggle">
-          <span class="cat-num">${String(ci + 1).padStart(2, '0')}</span>
-          <span class="cat-title"></span>
+          <span class="cat-title-row">
+            <span class="cat-num">${String(ci + 1).padStart(2, '0')}</span>
+            <span class="cat-title"></span>
+          </span>
           <span class="cat-meta"></span>
+        </button>
+        <div class="cat-utility-row">
+          <button type="button" class="cat-reorder-btn" data-dir="-1" title="Move up">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+          </button>
+          <button type="button" class="cat-reorder-btn" data-dir="1" title="Move down">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <button type="button" class="cat-edit-btn" title="Rename category">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <button type="button" class="cat-reorder-btn" data-dir="-1" title="Move up">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
-        </button>
-        <button type="button" class="cat-reorder-btn" data-dir="1" title="Move down">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <button type="button" class="cat-edit-btn" title="Rename category">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        </button>
+        </div>
       </div>
       <div class="cat-rename-form add-form is-hidden">
         <input type="text" class="cat-rename-input" placeholder="Category name…" autocomplete="off">
@@ -664,11 +678,13 @@
     cat.moves.forEach(mv => ul.appendChild(buildMoveEl(mv, cat)));
     ul.appendChild(buildAddMoveTile(cat));
 
-    section.querySelector('.cat-head-toggle').addEventListener('click', () => {
+    const toggleOpen = () => {
       const nowOpen = section.dataset.open !== 'true';
       section.dataset.open = nowOpen ? 'true' : 'false';
       if(nowOpen) openCats.add(cat.id); else openCats.delete(cat.id);
-    });
+    };
+    section.querySelector('.cat-head-toggle').addEventListener('click', toggleOpen);
+    section.querySelector('.cat-photo-btn').addEventListener('click', toggleOpen);
 
     section.querySelectorAll('.cat-reorder-btn').forEach(btn => {
       const dir = parseInt(btn.dataset.dir, 10);
