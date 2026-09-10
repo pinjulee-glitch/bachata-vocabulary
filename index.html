@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bachata Vocabulary</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="page">
+  <header class="top">
+    <p class="eyebrow">Personal reference</p>
+    <h1>Bachata Vocabulary</h1>
+    <p class="sub">Every move you've learned, grouped the way you'd teach it — basics to closed hold, shadow position to hammer locks. Open a move and drop in a link to your practice clip so it's there next time you forget the count.</p>
+
+    <div class="profile-card">
+      <div class="profile-row" id="profileRow"></div>
+      <div class="progress-track"><div class="progress-fill" id="progressTrack"></div></div>
+      <div class="profile-form is-hidden" id="profileForm">
+        <input type="text" id="profileNameInput" placeholder="Your name…" autocomplete="off">
+        <div class="add-actions">
+          <button type="button" class="btn-save" id="profileSaveBtn">Start tracking</button>
+          <button type="button" class="btn-cancel" id="profileCancelBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="text" placeholder="Search a move…" autocomplete="off">
+    </div>
+    <div class="filter-row">
+      <button type="button" class="filter-chip active" data-filter="all">All moves</button>
+      <button type="button" class="filter-chip" data-filter="focus">Focus</button>
+      <button type="button" class="filter-chip" data-filter="learned">Learned</button>
+      <button type="button" class="filter-chip" data-filter="todo">To learn</button>
+    </div>
+  </header>
+
+  <p class="no-results" id="noResults">Nothing matches that search.</p>
+  <div class="categories" id="categories"></div>
+
+  <footer>Saved automatically — reopen it anytime and your video links will be waiting.</footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="seed-data.js"></script>
+<script src="backend.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
