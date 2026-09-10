@@ -271,6 +271,16 @@ h1{
 }
 .filter-chip-link:hover{ color: var(--accent); opacity: .85; }
 
+.filter-row-label{
+  margin: 14px 0 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.filter-row-label + .filter-row{ margin-top: 6px; }
+
 .search-wrap{ position: relative; }
 .search-wrap svg{
   position: absolute;
