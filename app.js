@@ -438,27 +438,30 @@
           <svg class="star-icon" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l3.09 6.63L22 10.1l-5 5.05L18.18 22 12 18.53 5.82 22 7 15.15l-5-5.05 6.91-.97L12 2.5z"/></svg>
         </button>
       </div>
-      <button type="button" class="learned-toggle">
-        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-        <span>Mark as learned</span>
-      </button>
-      <div class="move-display">
-        <div class="move-title-row">
-          <span class="move-title">${escapeHtml(mv.title)}</span>
-          <button type="button" class="move-edit-btn" title="Edit move">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button>
+      <div class="move-info">
+        <div class="move-display">
+          <div class="move-title-row">
+            <span class="move-title">${escapeHtml(mv.title)}</span>
+            <button type="button" class="move-edit-btn" title="Edit move">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
+          </div>
+          <p class="move-category">${escapeHtml(cat.title)}</p>
+          ${noteHtml}
         </div>
-        ${noteHtml}
-      </div>
-      <div class="move-edit-form add-form is-hidden">
-        <input type="text" class="edit-title-input" placeholder="Move name…" autocomplete="off">
-        <textarea class="edit-note-input" placeholder="Cue / description (optional)" rows="2"></textarea>
-        <div class="add-actions">
-          <button type="button" class="btn-save">Save</button>
-          <button type="button" class="btn-cancel">Cancel</button>
+        <div class="move-edit-form add-form is-hidden">
+          <input type="text" class="edit-title-input" placeholder="Move name…" autocomplete="off">
+          <textarea class="edit-note-input" placeholder="Cue / description (optional)" rows="2"></textarea>
+          <div class="add-actions">
+            <button type="button" class="btn-save">Save</button>
+            <button type="button" class="btn-cancel">Cancel</button>
+          </div>
+          <button type="button" class="btn-delete-move">Delete this move</button>
         </div>
-        <button type="button" class="btn-delete-move">Delete this move</button>
+        <button type="button" class="learned-toggle">
+          <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <span>Mark as learned</span>
+        </button>
       </div>
       <div class="video-row">
         <input type="url" inputmode="url" placeholder="Paste clip link…" autocomplete="off">
