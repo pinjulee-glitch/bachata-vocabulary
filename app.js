@@ -42,12 +42,18 @@
     return null;
   }
 
+  function isIOS(){
+    return /iP(hone|od|ad)/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
   function resolveVideo(mv){
     if(mv.driveId){
       return {
         kind: 'drive',
         thumb: `https://drive.google.com/thumbnail?id=${mv.driveId}&sz=w400`,
-        embedUrl: `https://drive.google.com/file/d/${mv.driveId}/preview`
+        embedUrl: `https://drive.google.com/file/d/${mv.driveId}/preview`,
+        viewUrl: `https://drive.google.com/file/d/${mv.driveId}/view`
       };
     }
     const url = mv.videoUrl;
@@ -55,7 +61,7 @@
 
     if(/drive\.google\.com/.test(url)){
       const id = driveIdFromUrl(url);
-      if(id) return { kind: 'drive', thumb: `https://drive.google.com/thumbnail?id=${id}&sz=w400`, embedUrl: `https://drive.google.com/file/d/${id}/preview` };
+      if(id) return { kind: 'drive', thumb: `https://drive.google.com/thumbnail?id=${id}&sz=w400`, embedUrl: `https://drive.google.com/file/d/${id}/preview`, viewUrl: `https://drive.google.com/file/d/${id}/view` };
     }
     let m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
     if(m) return { kind: 'embed', embedUrl: `https://www.youtube.com/embed/${m[1]}`, thumb: `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`, source: 'YouTube' };
@@ -92,6 +98,17 @@
     const embed = () => {
       preview.innerHTML = `<iframe class="clip-frame" src="${info.embedUrl}" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe>`;
     };
+    if(info.kind === 'drive' && isIOS()){
+      // Google Drive's embeddable /preview renders as a permanent black
+      // box inside an iframe on iOS Safari — a known Drive/Safari bug, not
+      // fixable from here. Open Drive's own viewer instead of embedding.
+      preview.innerHTML = `
+        <a class="clip-thumb-btn" href="${info.viewUrl}" target="_blank" rel="noopener noreferrer" title="Play clip">
+          <img class="clip-thumb-img" src="${info.thumb}" loading="lazy" alt="">
+          <span class="play-badge">${playIconSvg()}</span>
+        </a>`;
+      return;
+    }
     if(info.kind === 'drive' || (info.kind === 'embed' && info.thumb)){
       preview.innerHTML = `
         <button type="button" class="clip-thumb-btn" title="Play clip">

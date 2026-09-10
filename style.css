@@ -446,6 +446,7 @@ h1{
   font: inherit;
   cursor: pointer;
   background: var(--surface-alt);
+  text-decoration: none;
 }
 .clip-thumb-img{
   display: block;
