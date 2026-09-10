@@ -205,9 +205,11 @@
     });
   }
 
+  let progressUnsubscribe = null;
   function connectProgress(){
     if(!profile) return;
-    Backend.watchProgress(profile.id, (data) => {
+    if(progressUnsubscribe) progressUnsubscribe();
+    progressUnsubscribe = Backend.watchProgress(profile.id, (data) => {
       learned = (data && data.learned) || {};
       focusMoves = (data && data.focus) || {};
       renderProfileBar();
@@ -215,6 +217,18 @@
       repaintAllFocus();
       applySearch();
     });
+  }
+
+  function logOutProfile(){
+    if(progressUnsubscribe){ progressUnsubscribe(); progressUnsubscribe = null; }
+    profile = null;
+    try{ localStorage.removeItem('bachata-profile'); }catch(e){}
+    learned = {};
+    focusMoves = {};
+    renderProfileBar();
+    repaintAllLearned();
+    repaintAllFocus();
+    applySearch();
   }
 
   function toggleLearned(moveId){
@@ -332,6 +346,7 @@
             ${menuItems}
             <button type="button" class="profile-switch-add" id="findAccountBtn">Log in to another account</button>
             <button type="button" class="profile-switch-add" id="addPersonBtn">+ Add new person</button>
+            <button type="button" class="profile-switch-add profile-switch-logout" id="logOutBtn">Log out</button>
           </div>
         </div>
       `;
@@ -356,6 +371,11 @@
       document.getElementById('findAccountBtn').addEventListener('click', (e) => {
         e.stopPropagation();
         openProfilePicker();
+      });
+      document.getElementById('logOutBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeProfileSwitchMenu();
+        logOutProfile();
       });
     } else {
       row.innerHTML = `
@@ -423,13 +443,26 @@
     const row = document.getElementById('adminRow');
     if(!row) return;
     if(isAdmin){
-      row.innerHTML = `<button type="button" class="admin-link" id="adminLogoutBtn">Admin mode on · Log out</button>`;
+      row.innerHTML = `
+        <div class="admin-actions-row">
+          <button type="button" class="admin-link" id="manageAccountsBtn">Manage accounts</button>
+          <button type="button" class="admin-link" id="adminLogoutBtn">Admin mode on · Log out</button>
+        </div>
+        <div class="admin-accounts-panel is-hidden" id="manageAccountsPanel"></div>
+      `;
       document.getElementById('adminLogoutBtn').addEventListener('click', () => {
         isAdmin = false;
         try{ localStorage.removeItem('bachata-admin'); }catch(e){}
         applyAdminState();
         renderAdminRow();
         renderAll();
+      });
+      document.getElementById('manageAccountsBtn').addEventListener('click', () => {
+        const panel = document.getElementById('manageAccountsPanel');
+        const nowHidden = !panel.classList.contains('is-hidden');
+        if(nowHidden){ panel.classList.add('is-hidden'); return; }
+        panel.classList.remove('is-hidden');
+        renderManageAccountsPanel();
       });
     } else {
       row.innerHTML = `
@@ -468,6 +501,49 @@
         if(e.key === 'Enter'){ e.preventDefault(); submit(); }
       });
     }
+  }
+
+  function renderManageAccountsPanel(){
+    const panel = document.getElementById('manageAccountsPanel');
+    if(!panel) return;
+    panel.innerHTML = '<p class="profile-picker-loading">Loading accounts…</p>';
+    Backend.listProfiles().then((profiles) => {
+      if(!profiles.length){
+        panel.innerHTML = '<p class="profile-picker-loading">No accounts yet.</p>';
+        return;
+      }
+      panel.innerHTML = profiles.map(p => `
+        <div class="admin-account-row" data-id="${p.id}">
+          <span class="admin-account-name">${escapeHtml(p.name)}</span>
+          <button type="button" class="admin-account-delete" data-id="${p.id}" data-name="${escapeHtml(p.name)}">Remove</button>
+        </div>
+      `).join('');
+      panel.querySelectorAll('.admin-account-delete').forEach(btn => {
+        let armed = false;
+        let resetTimer = null;
+        const label = 'Remove';
+        btn.addEventListener('click', () => {
+          if(!armed){
+            armed = true;
+            btn.textContent = 'Click again to confirm';
+            btn.classList.add('is-armed');
+            clearTimeout(resetTimer);
+            resetTimer = setTimeout(() => {
+              armed = false;
+              btn.textContent = label;
+              btn.classList.remove('is-armed');
+            }, 3000);
+            return;
+          }
+          clearTimeout(resetTimer);
+          const id = btn.dataset.id;
+          Backend.deleteProfile(id).then(() => {
+            if(profile && profile.id === id) logOutProfile();
+            renderManageAccountsPanel();
+          }).catch((e) => console.error('deleteProfile failed', e));
+        });
+      });
+    });
   }
 
   // ---- Structure CRUD ----

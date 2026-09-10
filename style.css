@@ -166,6 +166,7 @@ h1{
   cursor: pointer;
 }
 .profile-switch-add:hover{ background: var(--surface-alt); }
+.profile-switch-logout{ color: var(--text-dim); }
 
 .progress-track{
   margin-top: 10px;
@@ -782,6 +783,43 @@ footer p{ margin: 0; }
   border-radius: 999px;
 }
 .admin-link:hover, .admin-link:focus-visible{ color: var(--accent); background: var(--surface-alt); }
+.admin-actions-row{ display: flex; gap: 4px; align-items: center; }
+.admin-accounts-panel{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(100%, 360px);
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  background: var(--surface);
+}
+.admin-account-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.admin-account-row:hover{ background: var(--surface-alt); }
+.admin-account-name{ font-size: 13px; font-weight: 600; color: var(--text); }
+.admin-account-delete{
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.admin-account-delete:hover{ color: var(--accent); border-color: var(--accent); }
+.admin-account-delete.is-armed{ color: #fff; background: #b3392f; border-color: #b3392f; }
 .admin-form{
   display: flex;
   align-items: center;

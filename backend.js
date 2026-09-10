@@ -41,9 +41,11 @@ const Backend = {
     db.collection('library').doc('structure').set({ categories }).catch((e) => console.error('setStructure failed', e));
   },
 
+  // Returns the onSnapshot unsubscribe function so callers can stop
+  // listening (e.g. on log out).
   watchProgress(profileId, cb){
     const ref = db.collection('progress').doc(profileId);
-    ref.onSnapshot((snap) => {
+    return ref.onSnapshot((snap) => {
       const data = snap.exists ? snap.data() : {};
       cb({ learned: data.learned || {}, focus: data.focus || {} });
     }, () => {
@@ -97,6 +99,12 @@ const Backend = {
       out.sort((a, b) => a.name.localeCompare(b.name));
       return out;
     });
+  },
+
+  // Admin-only: permanently removes a member's account (name, PIN, and
+  // learned/focus progress).
+  deleteProfile(profileId){
+    return db.collection('progress').doc(profileId).delete();
   }
 };
 
