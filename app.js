@@ -381,8 +381,8 @@
       row.innerHTML = `
         <div class="profile-text">Track which moves you've learned</div>
         <div class="profile-actions-row">
-          <button type="button" class="profile-btn profile-btn-primary" id="startTrackingBtn">Start tracking your progress</button>
-          <button type="button" class="profile-btn" id="haveAccountBtn">Already have an account?</button>
+          <button type="button" class="profile-btn profile-btn-primary" id="startTrackingBtn">Create account</button>
+          <button type="button" class="profile-btn" id="haveAccountBtn">Log in</button>
         </div>
       `;
       document.getElementById('startTrackingBtn').addEventListener('click', openProfileForm);
