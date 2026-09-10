@@ -609,6 +609,23 @@ h1{
 }
 .move-edit-btn:hover, .move-edit-btn:focus-visible{ color: var(--accent); }
 .move-edit-btn svg{ width: 13px; height: 13px; stroke: currentColor; }
+.move-title-actions{ display: none; align-items: center; gap: 1px; flex-shrink: 0; }
+.move-reorder-btn{
+  all: unset;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.move-reorder-btn:hover, .move-reorder-btn:focus-visible{ color: var(--accent); }
+.move-reorder-btn:disabled{ opacity: .25; cursor: default; }
+.move-reorder-btn:disabled:hover{ color: var(--text-dim); }
+.move-reorder-btn svg{ width: 13px; height: 13px; stroke: currentColor; }
 mark{ background: var(--accent-soft); color: inherit; border-radius: 3px; padding: 0 1px; }
 .move-note{
   margin: 0;
@@ -641,7 +658,7 @@ mark{ background: var(--accent-soft); color: inherit; border-radius: 3px; paddin
 .admin-only{ display: none !important; }
 body.is-admin .cat-reorder-btn.admin-only,
 body.is-admin .cat-edit-btn.admin-only,
-body.is-admin .move-edit-btn.admin-only{ display: flex !important; }
+body.is-admin .move-title-actions.admin-only{ display: flex !important; }
 body.is-admin .video-row.admin-only{ display: flex !important; }
 body.is-admin .sync-note.admin-only{ display: block !important; }
 body.is-admin .move-to.admin-only{ display: block !important; }

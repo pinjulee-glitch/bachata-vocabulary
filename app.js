@@ -623,6 +623,19 @@
     persistStructure();
     renderAll();
   }
+  function reorderMove(catId, moveId, direction){
+    const cat = categories.find(c => c.id === catId);
+    if(!cat) return;
+    const idx = cat.moves.findIndex(m => m.id === moveId);
+    if(idx === -1) return;
+    const swapWith = idx + direction;
+    if(swapWith < 0 || swapWith >= cat.moves.length) return;
+    const [mv] = cat.moves.splice(idx, 1);
+    cat.moves.splice(swapWith, 0, mv);
+    openCats.add(catId);
+    persistStructure();
+    renderAll();
+  }
   function saveVideoLink(catId, moveId, rawUrl, li, preview, syncNote){
     const cat = categories.find(c => c.id === catId);
     if(!cat) return;
@@ -656,7 +669,7 @@
   }
   document.addEventListener('click', closeAllMoveToMenus);
 
-  function buildMoveEl(mv, cat){
+  function buildMoveEl(mv, cat, mi){
     const li = document.createElement('li');
     li.className = 'move';
     li.dataset.id = mv.id;
@@ -680,9 +693,17 @@
         <div class="move-display">
           <div class="move-title-row">
             <span class="move-title">${escapeHtml(mv.title)}</span>
-            <button type="button" class="move-edit-btn admin-only" title="Edit move">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-            </button>
+            <div class="move-title-actions admin-only">
+              <button type="button" class="move-reorder-btn" data-dir="-1" title="Move up">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+              </button>
+              <button type="button" class="move-reorder-btn" data-dir="1" title="Move down">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <button type="button" class="move-edit-btn" title="Edit move">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+            </div>
           </div>
           <p class="move-category">${escapeHtml(cat.title)}</p>
           ${noteHtml}
@@ -731,6 +752,15 @@
 
     focusBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFocus(mv.id); });
     paintFocusById(mv.id);
+
+    li.querySelectorAll('.move-reorder-btn').forEach(btn => {
+      const dir = parseInt(btn.dataset.dir, 10);
+      if((dir === -1 && mi === 0) || (dir === 1 && mi === cat.moves.length - 1)) btn.disabled = true;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        reorderMove(cat.id, mv.id, dir);
+      });
+    });
 
     moveEditBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -917,7 +947,7 @@
     section.querySelector('.cat-meta').textContent = cat.moves.length + (cat.moves.length === 1 ? ' move' : ' moves');
 
     const ul = section.querySelector('.moves');
-    cat.moves.forEach(mv => ul.appendChild(buildMoveEl(mv, cat)));
+    cat.moves.forEach((mv, mi) => ul.appendChild(buildMoveEl(mv, cat, mi)));
     ul.appendChild(buildAddMoveTile(cat));
 
     const toggleOpen = () => {
