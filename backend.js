@@ -62,6 +62,41 @@ const Backend = {
       if(patch.focus) fallback.focus = patch.focus;
       ref.set(fallback, { merge: true }).catch((e) => console.error('updateProgress failed', e));
     });
+  },
+
+  // Creates a brand-new profile doc with its name + 4-digit PIN. Only
+  // called once, when a profile is first set up.
+  createProfile(profileId, name, pin){
+    return db.collection('progress').doc(profileId).set({
+      name, pin, learned: {}, focus: {}, updatedAt: Date.now()
+    }, { merge: true });
+  },
+
+  // Looks up a profile by id and checks its stored PIN. Profiles created
+  // before the PIN system existed have no `pin` field — those are let
+  // through so nobody gets locked out of progress they already made.
+  checkProfilePin(profileId, pin){
+    return db.collection('progress').doc(profileId).get().then((snap) => {
+      if(!snap.exists) return { ok: false, reason: 'not_found' };
+      const data = snap.data();
+      if(!data.pin) return { ok: true, name: data.name };
+      return { ok: data.pin === pin, name: data.name };
+    });
+  },
+
+  // All profiles anyone has ever tracked progress under — used for the
+  // "I already have an account" picker so a friend on a brand-new device
+  // can find their name.
+  listProfiles(){
+    return db.collection('progress').get().then((snap) => {
+      const out = [];
+      snap.forEach((doc) => {
+        const data = doc.data();
+        if(data.name) out.push({ id: doc.id, name: data.name });
+      });
+      out.sort((a, b) => a.name.localeCompare(b.name));
+      return out;
+    });
   }
 };
 

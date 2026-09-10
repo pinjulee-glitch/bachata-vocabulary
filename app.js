@@ -160,11 +160,49 @@
     renderProfileBar();
   }
 
-  function setProfile(name){
-    const trimmed = name.trim();
-    const match = loadKnownProfiles().find(p => p.name.toLowerCase() === trimmed.toLowerCase());
-    const id = match ? match.id : uid('u');
-    switchToProfile(id, trimmed);
+  function createNewProfile(name, pin){
+    const id = uid('u');
+    Backend.createProfile(id, name.trim(), pin).catch((e) => console.error('createProfile failed', e));
+    switchToProfile(id, name);
+  }
+
+  // A profile switch (from the known-names dropdown, or the "I already
+  // have an account" picker) always goes through this — it checks the
+  // PIN server-side before switching. Profiles made before the PIN
+  // system existed have no PIN on file and are let straight through.
+  let pendingProfileSwitch = null;
+  function requestProfileSwitch(id, name){
+    pendingProfileSwitch = { id, name };
+    closeProfileSwitchMenu();
+    document.getElementById('profileForm').classList.add('is-hidden');
+    document.getElementById('profilePickerForm').classList.add('is-hidden');
+    document.getElementById('profileRow').classList.add('is-hidden');
+    const pinForm = document.getElementById('profilePinForm');
+    document.getElementById('profilePinPrompt').textContent = `Enter ${name}'s PIN`;
+    document.getElementById('profilePinError').classList.add('is-hidden');
+    const pinInput = document.getElementById('profilePinVerifyInput');
+    pinInput.value = '';
+    pinForm.classList.remove('is-hidden');
+    pinInput.focus();
+  }
+  function submitProfilePin(){
+    if(!pendingProfileSwitch) return;
+    const pinInput = document.getElementById('profilePinVerifyInput');
+    const errorEl = document.getElementById('profilePinError');
+    const pin = pinInput.value.trim();
+    Backend.checkProfilePin(pendingProfileSwitch.id, pin).then((result) => {
+      if(result.ok){
+        const { id, name } = pendingProfileSwitch;
+        pendingProfileSwitch = null;
+        switchToProfile(id, name);
+        closeProfileForm();
+      } else {
+        errorEl.textContent = result.reason === 'not_found' ? "Couldn't find that account." : 'Try again.';
+        errorEl.classList.remove('is-hidden');
+        pinInput.value = '';
+        pinInput.focus();
+      }
+    });
   }
 
   function connectProgress(){
@@ -222,22 +260,46 @@
     catsEl.querySelectorAll('.move[data-id]').forEach(li => paintFocusById(li.dataset.id));
   }
 
-  function openProfileForm(){
-    const form = document.getElementById('profileForm');
-    const row = document.getElementById('profileRow');
-    if(!form) return;
-    closeProfileSwitchMenu();
-    form.classList.remove('is-hidden');
-    if(row) row.classList.add('is-hidden');
-    const input = document.getElementById('profileNameInput');
-    input.value = '';
-    input.focus();
+  function closeAllProfileForms(){
+    ['profileForm', 'profilePickerForm', 'profilePinForm'].forEach(id => {
+      document.getElementById(id).classList.add('is-hidden');
+    });
+    document.getElementById('profileRow').classList.remove('is-hidden');
+    pendingProfileSwitch = null;
   }
   function closeProfileForm(){
-    const form = document.getElementById('profileForm');
-    const row = document.getElementById('profileRow');
-    if(form) form.classList.add('is-hidden');
-    if(row) row.classList.remove('is-hidden');
+    closeAllProfileForms();
+  }
+  function openProfileForm(){
+    closeProfileSwitchMenu();
+    closeAllProfileForms();
+    document.getElementById('profileRow').classList.add('is-hidden');
+    document.getElementById('profileForm').classList.remove('is-hidden');
+    document.getElementById('profileFormError').classList.add('is-hidden');
+    document.getElementById('profileNameInput').value = '';
+    document.getElementById('profilePinInput').value = '';
+    document.getElementById('profileNameInput').focus();
+  }
+  function openProfilePicker(){
+    closeProfileSwitchMenu();
+    closeAllProfileForms();
+    document.getElementById('profileRow').classList.add('is-hidden');
+    const form = document.getElementById('profilePickerForm');
+    const list = document.getElementById('profilePickerList');
+    form.classList.remove('is-hidden');
+    list.innerHTML = '<p class="profile-picker-loading">Loading names…</p>';
+    Backend.listProfiles().then((profiles) => {
+      if(!profiles.length){
+        list.innerHTML = '<p class="profile-picker-loading">No accounts yet.</p>';
+        return;
+      }
+      list.innerHTML = profiles.map(p => `
+        <button type="button" class="profile-switch-option" data-id="${p.id}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.name)}</button>
+      `).join('');
+      list.querySelectorAll('.profile-switch-option').forEach(btn => {
+        btn.addEventListener('click', () => requestProfileSwitch(btn.dataset.id, btn.dataset.name));
+      });
+    });
   }
   function closeProfileSwitchMenu(){
     const menu = document.getElementById('profileSwitchMenu');
@@ -252,9 +314,9 @@
       const total = totalMoveCount();
       const done = learnedCount();
       const pct = total ? Math.round((done / total) * 100) : 0;
-      const known = loadKnownProfiles();
+      const known = loadKnownProfiles().filter(p => p.id !== profile.id);
       const menuItems = known.map(p => `
-        <button type="button" class="profile-switch-option${p.id === profile.id ? ' is-current' : ''}" data-id="${p.id}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.name)}</button>
+        <button type="button" class="profile-switch-option" data-id="${p.id}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.name)}</button>
       `).join('');
       row.innerHTML = `
         <div class="profile-text">
@@ -268,6 +330,7 @@
           </button>
           <div class="profile-switch-menu is-hidden" id="profileSwitchMenu">
             ${menuItems}
+            <button type="button" class="profile-switch-add" id="findAccountBtn">Log in to another account</button>
             <button type="button" class="profile-switch-add" id="addPersonBtn">+ Add new person</button>
           </div>
         </div>
@@ -283,35 +346,129 @@
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           closeProfileSwitchMenu();
-          if(btn.dataset.id === profile.id) return;
-          switchToProfile(btn.dataset.id, btn.dataset.name);
+          requestProfileSwitch(btn.dataset.id, btn.dataset.name);
         });
       });
       document.getElementById('addPersonBtn').addEventListener('click', (e) => {
         e.stopPropagation();
         openProfileForm();
       });
+      document.getElementById('findAccountBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openProfilePicker();
+      });
     } else {
       row.innerHTML = `
-        <div class="profile-text">Set your name to track which moves you've learned</div>
-        <button type="button" class="profile-btn" id="changeNameBtn">Set your name</button>
+        <div class="profile-text">Track which moves you've learned</div>
+        <div class="profile-actions-row">
+          <button type="button" class="profile-btn profile-btn-primary" id="startTrackingBtn">Start tracking your progress</button>
+          <button type="button" class="profile-btn" id="haveAccountBtn">Already have an account?</button>
+        </div>
       `;
-      document.getElementById('changeNameBtn').addEventListener('click', openProfileForm);
+      document.getElementById('startTrackingBtn').addEventListener('click', openProfileForm);
+      document.getElementById('haveAccountBtn').addEventListener('click', openProfilePicker);
     }
   }
 
   document.getElementById('profileCancelBtn').addEventListener('click', closeProfileForm);
   document.getElementById('profileSaveBtn').addEventListener('click', () => {
     const nameInput = document.getElementById('profileNameInput');
+    const pinInput = document.getElementById('profilePinInput');
+    const errorEl = document.getElementById('profileFormError');
     const name = nameInput.value.trim();
-    if(!name){ nameInput.focus(); return; }
-    setProfile(name);
+    const pin = pinInput.value.trim();
+    if(!name || !/^\d{4}$/.test(pin)){
+      errorEl.classList.remove('is-hidden');
+      if(!name) nameInput.focus(); else pinInput.focus();
+      return;
+    }
+    createNewProfile(name, pin);
     closeProfileForm();
   });
   document.getElementById('profileNameInput').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('profilePinInput').focus(); }
+    if(e.key === 'Escape'){ closeProfileForm(); }
+  });
+  document.getElementById('profilePinInput').addEventListener('keydown', (e) => {
     if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('profileSaveBtn').click(); }
     if(e.key === 'Escape'){ closeProfileForm(); }
   });
+  document.getElementById('profilePickerCancelBtn').addEventListener('click', closeProfileForm);
+  document.getElementById('profilePinSubmitBtn').addEventListener('click', submitProfilePin);
+  document.getElementById('profilePinCancelBtn').addEventListener('click', () => {
+    if(profile){ closeProfileForm(); } else { openProfilePicker(); }
+  });
+  document.getElementById('profilePinVerifyInput').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); submitProfilePin(); }
+    if(e.key === 'Escape'){ closeProfileForm(); }
+  });
+
+  // ---- Admin mode (gates add/edit/delete for the shared move library) ----
+  // This is a shared password, not a real per-person login — it just
+  // separates "anyone with the link can browse and track their own
+  // progress" from "someone who's allowed to edit the library." Since the
+  // database itself is open, this is a soft gate against casual editing,
+  // not real security.
+  const ADMIN_PASSWORD = 'kutalombokdance';
+  let isAdmin = false;
+
+  function loadIsAdmin(){
+    try{ return localStorage.getItem('bachata-admin') === 'true'; }catch(e){ return false; }
+  }
+  function applyAdminState(){
+    document.body.classList.toggle('is-admin', isAdmin);
+  }
+
+  function renderAdminRow(){
+    const row = document.getElementById('adminRow');
+    if(!row) return;
+    if(isAdmin){
+      row.innerHTML = `<button type="button" class="admin-link" id="adminLogoutBtn">Admin mode on · Log out</button>`;
+      document.getElementById('adminLogoutBtn').addEventListener('click', () => {
+        isAdmin = false;
+        try{ localStorage.removeItem('bachata-admin'); }catch(e){}
+        applyAdminState();
+        renderAdminRow();
+        renderAll();
+      });
+    } else {
+      row.innerHTML = `
+        <button type="button" class="admin-link" id="adminLoginBtn">Admin</button>
+        <div class="admin-form is-hidden" id="adminForm">
+          <input type="password" id="adminPasswordInput" placeholder="Admin password" autocomplete="off">
+          <button type="button" class="btn-save" id="adminSubmitBtn">Log in</button>
+          <button type="button" class="btn-cancel" id="adminCancelBtn">Cancel</button>
+          <p class="profile-form-error is-hidden" id="adminError">Try again.</p>
+        </div>
+      `;
+      document.getElementById('adminLoginBtn').addEventListener('click', () => {
+        document.getElementById('adminLoginBtn').classList.add('is-hidden');
+        const form = document.getElementById('adminForm');
+        form.classList.remove('is-hidden');
+        document.getElementById('adminPasswordInput').focus();
+      });
+      document.getElementById('adminCancelBtn').addEventListener('click', renderAdminRow);
+      const submit = () => {
+        const input = document.getElementById('adminPasswordInput');
+        const errorEl = document.getElementById('adminError');
+        if(input.value === ADMIN_PASSWORD){
+          isAdmin = true;
+          try{ localStorage.setItem('bachata-admin', 'true'); }catch(e){}
+          applyAdminState();
+          renderAdminRow();
+          renderAll();
+        } else {
+          errorEl.classList.remove('is-hidden');
+          input.value = '';
+          input.focus();
+        }
+      };
+      document.getElementById('adminSubmitBtn').addEventListener('click', submit);
+      document.getElementById('adminPasswordInput').addEventListener('keydown', (e) => {
+        if(e.key === 'Enter'){ e.preventDefault(); submit(); }
+      });
+    }
+  }
 
   // ---- Structure CRUD ----
   function persistStructure(){
@@ -329,6 +486,14 @@
     const cat = categories.find(c => c.id === catId);
     if(!cat) return;
     cat.title = title.trim();
+    persistStructure();
+    renderAll();
+  }
+  function deleteCategory(catId){
+    const idx = categories.findIndex(c => c.id === catId);
+    if(idx === -1) return;
+    categories.splice(idx, 1);
+    openCats.delete(catId);
     persistStructure();
     renderAll();
   }
@@ -439,7 +604,7 @@
         <div class="move-display">
           <div class="move-title-row">
             <span class="move-title">${escapeHtml(mv.title)}</span>
-            <button type="button" class="move-edit-btn" title="Edit move">
+            <button type="button" class="move-edit-btn admin-only" title="Edit move">
               <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </button>
           </div>
@@ -460,12 +625,12 @@
           <span>Mark as learned</span>
         </button>
       </div>
-      <div class="video-row">
+      <div class="video-row admin-only">
         <input type="url" inputmode="url" placeholder="Paste clip link…" autocomplete="off">
       </div>
-      <p class="sync-note">Saved</p>
+      <p class="sync-note admin-only">Saved</p>
       ${otherCats.length ? `
-        <div class="move-to">
+        <div class="move-to admin-only">
           <button type="button" class="move-to-trigger">Move to…</button>
           <div class="move-to-menu is-hidden">${optionsHtml}</div>
         </div>
@@ -575,7 +740,7 @@
 
   function buildAddMoveTile(cat){
     const li = document.createElement('li');
-    li.className = 'move add-move-tile';
+    li.className = 'move add-move-tile admin-only';
     li.innerHTML = `
       <button type="button" class="add-trigger">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -645,13 +810,13 @@
           <span class="cat-meta"></span>
         </button>
         <div class="cat-utility-row">
-          <button type="button" class="cat-reorder-btn" data-dir="-1" title="Move up">
+          <button type="button" class="cat-reorder-btn admin-only" data-dir="-1" title="Move up">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
           </button>
-          <button type="button" class="cat-reorder-btn" data-dir="1" title="Move down">
+          <button type="button" class="cat-reorder-btn admin-only" data-dir="1" title="Move down">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          <button type="button" class="cat-edit-btn" title="Rename category">
+          <button type="button" class="cat-edit-btn admin-only" title="Rename category">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -663,6 +828,7 @@
           <button type="button" class="btn-save">Save</button>
           <button type="button" class="btn-cancel">Cancel</button>
         </div>
+        <button type="button" class="btn-delete-move">Delete this category</button>
       </div>
       <div class="cat-body">
         <div class="cat-body-inner">
@@ -706,12 +872,41 @@
     });
     renameForm.querySelector('.btn-cancel').addEventListener('click', () => {
       renameForm.classList.add('is-hidden');
+      resetCatDeleteArm();
     });
     renameForm.querySelector('.btn-save').addEventListener('click', () => {
       const t = renameInput.value.trim();
       if(!t){ renameInput.focus(); return; }
       renameCategory(cat.id, t);
     });
+
+    const deleteCatBtn = renameForm.querySelector('.btn-delete-move');
+    const deleteCatLabel = cat.moves.length
+      ? `Delete this category and its ${cat.moves.length} move${cat.moves.length === 1 ? '' : 's'}`
+      : 'Delete this category';
+    deleteCatBtn.textContent = deleteCatLabel;
+    let catDeleteArmed = false;
+    let catDeleteResetTimer = null;
+    function resetCatDeleteArm(){
+      catDeleteArmed = false;
+      clearTimeout(catDeleteResetTimer);
+      deleteCatBtn.textContent = deleteCatLabel;
+      deleteCatBtn.classList.remove('is-armed');
+    }
+    deleteCatBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if(!catDeleteArmed){
+        catDeleteArmed = true;
+        deleteCatBtn.textContent = 'Click again to confirm delete';
+        deleteCatBtn.classList.add('is-armed');
+        clearTimeout(catDeleteResetTimer);
+        catDeleteResetTimer = setTimeout(resetCatDeleteArm, 3000);
+        return;
+      }
+      clearTimeout(catDeleteResetTimer);
+      deleteCategory(cat.id);
+    });
+
     renameInput.addEventListener('keydown', (e) => {
       if(e.key === 'Enter'){ e.preventDefault(); renameForm.querySelector('.btn-save').click(); }
       if(e.key === 'Escape'){ renameForm.classList.add('is-hidden'); }
@@ -722,7 +917,7 @@
 
   function buildAddCategoryEl(){
     const wrap = document.createElement('div');
-    wrap.className = 'add-category';
+    wrap.className = 'add-category admin-only';
     wrap.innerHTML = `
       <button type="button" class="add-trigger">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -833,6 +1028,10 @@
   // ---- Boot ----
   profile = loadProfile();
   if(profile) saveKnownProfile(profile);
+
+  isAdmin = loadIsAdmin();
+  applyAdminState();
+  renderAdminRow();
 
   Backend.watchStructure((data) => {
     categories = data;

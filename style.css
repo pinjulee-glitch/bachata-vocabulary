@@ -1,45 +1,45 @@
 :root{
-  --bg: #f6f7fb;
+  --bg: #faf3ea;
   --surface: #ffffff;
-  --surface-alt: #eef0f8;
-  --border: #e4e7f2;
-  --text: #14162b;
-  --text-dim: #8a8fa6;
-  --accent: #3d5afe;
+  --surface-alt: #f2e6d8;
+  --border: #ecdcc8;
+  --text: #221a12;
+  --text-dim: #8c7c6a;
+  --accent: #e8734a;
   --accent-text: #ffffff;
-  --accent-soft: #e8ecff;
-  --gold: #f5a623;
-  --shadow: 0 2px 8px rgba(20,22,50,0.06), 0 14px 28px -14px rgba(20,22,50,0.18);
+  --accent-soft: #fbe0d1;
+  --gold: #e2a33f;
+  --shadow: 0 2px 8px rgba(40,26,12,0.07), 0 14px 28px -14px rgba(40,26,12,0.2);
   --radius: 20px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg: #101223;
-    --surface: #1a1c30;
-    --surface-alt: #22243c;
-    --border: #2e3150;
-    --text: #eef0fb;
-    --text-dim: #9b9fc0;
-    --accent: #7b8dff;
-    --accent-text: #0c0e1c;
-    --accent-soft: #262c52;
-    --gold: #f6b93b;
+    --bg: #1c1512;
+    --surface: #261d17;
+    --surface-alt: #302119;
+    --border: #3f2c20;
+    --text: #f5ece2;
+    --text-dim: #b8a693;
+    --accent: #f0855c;
+    --accent-text: #1c1512;
+    --accent-soft: #3d2418;
+    --gold: #e8b158;
     --shadow: 0 2px 8px rgba(0,0,0,0.35), 0 16px 32px -16px rgba(0,0,0,0.6);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg: #101223;
-  --surface: #1a1c30;
-  --surface-alt: #22243c;
-  --border: #2e3150;
-  --text: #eef0fb;
-  --text-dim: #9b9fc0;
-  --accent: #7b8dff;
-  --accent-text: #0c0e1c;
-  --accent-soft: #262c52;
-  --gold: #f6b93b;
+  --bg: #1c1512;
+  --surface: #261d17;
+  --surface-alt: #302119;
+  --border: #3f2c20;
+  --text: #f5ece2;
+  --text-dim: #b8a693;
+  --accent: #f0855c;
+  --accent-text: #1c1512;
+  --accent-soft: #3d2418;
+  --gold: #e8b158;
   --shadow: 0 2px 8px rgba(0,0,0,0.35), 0 16px 32px -16px rgba(0,0,0,0.6);
   color-scheme: dark;
 }
@@ -205,6 +205,37 @@ h1{
 }
 .profile-form .add-actions{ flex-shrink: 0; width: auto; }
 .profile-form .add-actions button{ flex: none; padding: 9px 16px; border-radius: 999px; }
+.profile-form-error{
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.profile-pin-prompt{ width: 100%; margin: 0 0 2px; font-size: 13.5px; font-weight: 700; }
+
+.profile-actions-row{ display: flex; gap: 8px; flex-wrap: wrap; }
+.profile-btn-primary{
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.profile-btn-primary:hover, .profile-btn-primary:focus-visible{ color: var(--accent-text); opacity: .9; }
+
+.profile-picker-list{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  background: var(--surface);
+}
+.profile-picker-list .profile-switch-option{ border-radius: 7px; }
+.profile-picker-loading{ margin: 6px 10px; font-size: 13px; color: var(--text-dim); }
 
 .filter-row{
   display: flex;
@@ -229,6 +260,15 @@ h1{
   border-color: var(--accent);
   color: var(--accent-text);
 }
+.filter-chip-link{
+  display: inline-block;
+  text-decoration: none;
+  margin-left: auto;
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
+}
+.filter-chip-link:hover{ color: var(--accent); opacity: .85; }
 
 .search-wrap{ position: relative; }
 .search-wrap svg{
@@ -597,6 +637,16 @@ mark{ background: var(--accent-soft); color: inherit; border-radius: 3px; paddin
 
 .is-hidden{ display: none !important; }
 
+.admin-only{ display: none !important; }
+body.is-admin .cat-reorder-btn.admin-only,
+body.is-admin .cat-edit-btn.admin-only,
+body.is-admin .move-edit-btn.admin-only{ display: flex !important; }
+body.is-admin .video-row.admin-only{ display: flex !important; }
+body.is-admin .sync-note.admin-only{ display: block !important; }
+body.is-admin .move-to.admin-only{ display: block !important; }
+body.is-admin .move.add-move-tile.admin-only{ display: flex !important; }
+body.is-admin .add-category.admin-only{ display: flex !important; }
+
 .move-to{ position: relative; }
 .move-to-trigger{
   all: unset;
@@ -638,11 +688,12 @@ mark{ background: var(--accent-soft); color: inherit; border-radius: 3px; paddin
 .move-to-option:hover, .move-to-option:focus-visible{ background: var(--surface-alt); }
 
 .add-move-tile{
-  border-style: dashed;
   align-items: center;
   justify-content: center;
   text-align: center;
   min-height: 150px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
 }
 .add-trigger{
   all: unset;
@@ -719,6 +770,50 @@ mark{ background: var(--accent-soft); color: inherit; border-radius: 3px; paddin
 
 footer{ margin-top: 40px; text-align: center; font-size: 12px; color: var(--text-dim); }
 footer a{ color: inherit; }
+footer p{ margin: 0; }
+#adminRow{ margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.admin-link{
+  all: unset;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.admin-link:hover, .admin-link:focus-visible{ color: var(--accent); background: var(--surface-alt); }
+.admin-form{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.admin-form input{
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+  width: 160px;
+}
+.admin-form input:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.admin-form button{
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.admin-form .btn-save{ background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.admin-form .profile-form-error{ width: 100%; text-align: center; }
 
 @media (prefers-reduced-motion: reduce){
   .cat-body, .chev{ transition: none; }

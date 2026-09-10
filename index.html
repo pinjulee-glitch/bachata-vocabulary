@@ -20,10 +20,27 @@
       <div class="progress-track"><div class="progress-fill" id="progressTrack"></div></div>
       <div class="profile-form is-hidden" id="profileForm">
         <input type="text" id="profileNameInput" placeholder="Your name…" autocomplete="off">
+        <input type="password" id="profilePinInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4-digit PIN" autocomplete="off">
         <div class="add-actions">
           <button type="button" class="btn-save" id="profileSaveBtn">Start tracking</button>
           <button type="button" class="btn-cancel" id="profileCancelBtn">Cancel</button>
         </div>
+        <p class="profile-form-error is-hidden" id="profileFormError">Enter your name and a 4-digit PIN.</p>
+      </div>
+      <div class="profile-form is-hidden" id="profilePickerForm">
+        <div class="profile-picker-list" id="profilePickerList"></div>
+        <div class="add-actions">
+          <button type="button" class="btn-cancel" id="profilePickerCancelBtn">Cancel</button>
+        </div>
+      </div>
+      <div class="profile-form is-hidden" id="profilePinForm">
+        <p class="profile-pin-prompt" id="profilePinPrompt">Enter your PIN</p>
+        <input type="password" id="profilePinVerifyInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4-digit PIN" autocomplete="off">
+        <div class="add-actions">
+          <button type="button" class="btn-save" id="profilePinSubmitBtn">Log in</button>
+          <button type="button" class="btn-cancel" id="profilePinCancelBtn">Back</button>
+        </div>
+        <p class="profile-form-error is-hidden" id="profilePinError">Try again.</p>
       </div>
     </div>
 
@@ -36,13 +53,17 @@
       <button type="button" class="filter-chip" data-filter="focus">Focus</button>
       <button type="button" class="filter-chip" data-filter="learned">Learned</button>
       <button type="button" class="filter-chip" data-filter="todo">To learn</button>
+      <a class="filter-chip filter-chip-link" href="https://drive.google.com/drive/folders/1iurvs2xzzI9XEwDI7dOrU0GJ1O2N27nA?usp=drive_link" target="_blank" rel="noopener noreferrer">Sequences ↗</a>
     </div>
   </header>
 
   <p class="no-results" id="noResults">Nothing matches that search.</p>
   <div class="categories" id="categories"></div>
 
-  <footer>Saved automatically — reopen it anytime and your video links will be waiting.</footer>
+  <footer>
+    <p>Saved automatically — reopen it anytime and your video links will be waiting.</p>
+    <div id="adminRow"></div>
+  </footer>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
