@@ -898,10 +898,23 @@
 
     // The category card's photo is the first move in it that has a Drive
     // clip — just a representative preview, like a course's cover image.
-    const coverMove = cat.moves.find(m => m.driveId || m.videoUrl);
-    const photoHtml = coverMove
-      ? `<img class="cat-photo-img" src="gifs/${coverMove.id}.gif" loading="lazy" alt="" onerror="this.onerror=null;this.src='https://drive.google.com/thumbnail?id=${coverMove.driveId || ''}&sz=w400';">`
-      : `<span class="cat-photo-placeholder">${plusIconSvg()}</span>`;
+    // Prefer the first Drive clip, since only those get a generated GIF —
+    // a YouTube move has no gifs/<id>.gif and would render broken. Fall
+    // back to any other clip's own thumbnail, then to a placeholder.
+    const gifMove = cat.moves.find(m => m.driveId);
+    let photoHtml;
+    if(gifMove){
+      const info = resolveVideo(gifMove);
+      photoHtml = `<img class="cat-photo-img" src="gifs/${gifMove.id}.gif" loading="lazy" alt="" onerror="this.onerror=null;this.src='${info.thumb}';">`;
+    } else {
+      const thumbMove = cat.moves.find(m => {
+        const i = m.videoUrl ? resolveVideo(m) : null;
+        return i && i.thumb;
+      });
+      photoHtml = thumbMove
+        ? `<img class="cat-photo-img" src="${resolveVideo(thumbMove).thumb}" loading="lazy" alt="">`
+        : `<span class="cat-photo-placeholder">${plusIconSvg()}</span>`;
+    }
 
     section.innerHTML = `
       <button type="button" class="cat-photo-btn" title="${escapeHtml(cat.title)}">
