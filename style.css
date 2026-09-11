@@ -829,7 +829,15 @@ footer p{ margin: 0; }
   border-radius: 999px;
 }
 .admin-link:hover, .admin-link:focus-visible{ color: var(--accent); background: var(--surface-alt); }
-.admin-actions-row{ display: flex; gap: 4px; align-items: center; }
+.admin-actions-row{ display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: center; }
+a.admin-link{ text-decoration: none; }
+.admin-gif-status{
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.admin-gif-status.is-pending{ color: var(--accent); }
 .admin-accounts-panel{
   display: flex;
   flex-direction: column;
