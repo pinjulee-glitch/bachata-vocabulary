@@ -105,6 +105,40 @@ const Backend = {
   // learned/focus progress).
   deleteProfile(profileId){
     return db.collection('progress').doc(profileId).delete();
+  },
+
+  // ---- Clip submissions ----
+  // A clip a member uploaded that isn't in the shared library yet. It shows
+  // only to whoever uploaded it until an admin approves, at which point it
+  // gets copied into library/structure and becomes normal shared content.
+  //
+  // NOTE: this is UI-level moderation only. The database is open, so a
+  // determined viewer could read others' pending clips or flip their own
+  // status. Fine for a friend group; not a security boundary.
+  watchSubmissions(cb){
+    return db.collection('submissions').onSnapshot((snap) => {
+      const out = [];
+      snap.forEach(doc => out.push(Object.assign({ id: doc.id }, doc.data())));
+      out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      cb(out);
+    }, (err) => {
+      console.error('submissions watch failed', err);
+      cb([]);
+    });
+  },
+
+  addSubmission(data){
+    return db.collection('submissions').add(
+      Object.assign({ status: 'pending', createdAt: Date.now() }, data)
+    );
+  },
+
+  setSubmissionStatus(id, status){
+    return db.collection('submissions').doc(id).update({ status, decidedAt: Date.now() });
+  },
+
+  deleteSubmission(id){
+    return db.collection('submissions').doc(id).delete();
   }
 };
 

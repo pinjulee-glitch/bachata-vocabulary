@@ -8,6 +8,7 @@
   let profile = null;
   let learned = {};
   let focusMoves = {};
+  let submissions = [];   // clips awaiting (or refused) admin approval
 
   const catsEl = document.getElementById('categories');
   const searchEl = document.getElementById('search');
@@ -45,7 +46,59 @@
     return null;
   }
 
+  // ---- Cloudinary ----
+  // Both values are public identifiers by design (they ship in client code
+  // on every Cloudinary site); the upload preset is "unsigned", so no
+  // secret is involved. Abuse is limited by the preset's own format/size
+  // caps, set in the Cloudinary console.
+  const CLOUDINARY = {
+    cloudName: '',   // e.g. 'dxyz123ab'
+    preset: ''       // e.g. 'bachata_unsigned'
+  };
+  function cloudinaryReady(){
+    return !!(CLOUDINARY.cloudName && CLOUDINARY.preset);
+  }
+  function cloudinaryUrls(publicId){
+    const base = `https://res.cloudinary.com/${CLOUDINARY.cloudName}/video/upload`;
+    return {
+      // Short looping GIF, generated on the fly — replaces the whole
+      // download/ffmpeg/commit pipeline the Drive clips needed.
+      gif: `${base}/w_240,du_6,fps_8,e_loop,f_gif,q_auto/${publicId}.gif`,
+      poster: `${base}/so_0,w_400,f_jpg,q_auto/${publicId}.jpg`,
+      video: `${base}/q_auto/${publicId}.mp4`
+    };
+  }
+
+  function uploadToCloudinary(file, onProgress){
+    return new Promise((resolve, reject) => {
+      if(!cloudinaryReady()){ reject(new Error('Cloudinary is not configured yet.')); return; }
+      const form = new FormData();
+      form.append('file', file);
+      form.append('upload_preset', CLOUDINARY.preset);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY.cloudName}/video/upload`);
+      xhr.upload.addEventListener('progress', (e) => {
+        if(e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+      xhr.onload = () => {
+        let body = {};
+        try{ body = JSON.parse(xhr.responseText); }catch(e){}
+        if(xhr.status >= 200 && xhr.status < 300 && body.public_id){
+          resolve(body.public_id);
+        } else {
+          reject(new Error((body.error && body.error.message) || `Upload failed (${xhr.status})`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Upload failed — check your connection.'));
+      xhr.send(form);
+    });
+  }
+
   function resolveVideo(mv){
+    if(mv.cloudinaryId && cloudinaryReady()){
+      const u = cloudinaryUrls(mv.cloudinaryId);
+      return { kind: 'cloudinary', thumb: u.gif, poster: u.poster, src: u.video };
+    }
     if(mv.driveId){
       return {
         kind: 'drive',
@@ -96,7 +149,22 @@
     const embed = () => {
       preview.innerHTML = `<iframe class="clip-frame" src="${info.embedUrl}" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe>`;
     };
-    if(info.kind === 'drive'){
+    if(info.kind === 'cloudinary'){
+      // Cloudinary serves a real video/mp4, so the page's own <video> can
+      // play it inline — including on iOS Safari, where Drive's iframe
+      // renders as a black box. Shows the looping GIF until tapped.
+      preview.innerHTML = `
+        <button type="button" class="clip-thumb-btn" title="Play clip">
+          <img class="clip-thumb-img" src="${info.thumb}" loading="lazy" alt=""
+               onerror="this.onerror=null;this.src='${info.poster}';">
+          <span class="play-badge">${playIconSvg()}</span>
+        </button>`;
+      preview.querySelector('.clip-thumb-btn').addEventListener('click', () => {
+        preview.innerHTML =
+          `<video class="clip-video-el" controls autoplay playsinline
+                  poster="${info.poster}" src="${info.src}"></video>`;
+      });
+    } else if(info.kind === 'drive'){
       // Drive's embeddable iframe has proven unreliable across devices
       // (renders as a black box on iOS Safari, sometimes errors outright
       // elsewhere). Show a looping GIF preview instead — nothing to load
@@ -322,6 +390,8 @@
   document.addEventListener('click', closeProfileSwitchMenu);
 
   function renderProfileBar(){
+    // Gates the per-member upload tile (see .member-only in the stylesheet).
+    document.body.classList.toggle('has-profile', !!profile);
     const row = document.getElementById('profileRow');
     if(!row) return;
     if(profile){
@@ -466,20 +536,33 @@
     document.body.classList.toggle('is-admin', isAdmin);
   }
 
+  function pendingCount(){
+    return submissions.filter(s => s.status === 'pending').length;
+  }
+
   function renderAdminRow(){
     const row = document.getElementById('adminRow');
     if(!row) return;
     if(isAdmin){
       row.innerHTML = `
         <div class="admin-actions-row">
+          <button type="button" class="admin-link" id="reviewClipsBtn">Review clips${pendingCount() ? ` (${pendingCount()})` : ''}</button>
           <button type="button" class="admin-link" id="manageAccountsBtn">Manage accounts</button>
           <a class="admin-link" id="genGifsLink" href="${GIF_WORKFLOW_URL}" target="_blank" rel="noopener noreferrer">Generate GIFs ↗</a>
           <button type="button" class="admin-link" id="adminLogoutBtn">Admin mode on · Log out</button>
         </div>
         <p class="admin-gif-status" id="gifPending">Checking clips…</p>
+        <div class="admin-accounts-panel is-hidden" id="reviewPanel"></div>
         <div class="admin-accounts-panel is-hidden" id="manageAccountsPanel"></div>
       `;
       checkPendingGifs();
+      document.getElementById('reviewClipsBtn').addEventListener('click', () => {
+        const panel = document.getElementById('reviewPanel');
+        if(!panel.classList.contains('is-hidden')){ panel.classList.add('is-hidden'); return; }
+        document.getElementById('manageAccountsPanel').classList.add('is-hidden');
+        panel.classList.remove('is-hidden');
+        renderReviewPanel();
+      });
       document.getElementById('adminLogoutBtn').addEventListener('click', () => {
         isAdmin = false;
         try{ localStorage.removeItem('bachata-admin'); }catch(e){}
@@ -531,6 +614,78 @@
         if(e.key === 'Enter'){ e.preventDefault(); submit(); }
       });
     }
+  }
+
+  // Approving copies the clip into library/structure so it becomes an
+  // ordinary shared move, then marks the submission approved (kept as a
+  // record of who contributed it).
+  function approveSubmission(sub){
+    const cat = categories.find(c => c.id === sub.categoryId) || categories[0];
+    if(!cat){ return; }
+    cat.moves.push({
+      id: uid('mv'),
+      title: sub.title,
+      note: sub.note || '',
+      cloudinaryId: sub.cloudinaryId,
+      contributedBy: sub.uploaderName || ''
+    });
+    persistStructure();
+    Backend.setSubmissionStatus(sub.id, 'approved')
+      .catch(e => console.error('approve failed', e));
+    renderAll();
+  }
+
+  function renderReviewPanel(){
+    const panel = document.getElementById('reviewPanel');
+    if(!panel) return;
+    const pending = submissions.filter(s => s.status === 'pending');
+    if(!pending.length){
+      panel.innerHTML = '<p class="profile-picker-loading">No clips waiting for review.</p>';
+      return;
+    }
+    panel.innerHTML = pending.map(s => {
+      const cat = categories.find(c => c.id === s.categoryId);
+      const thumb = s.cloudinaryId && cloudinaryReady() ? cloudinaryUrls(s.cloudinaryId).gif : '';
+      return `
+        <div class="review-row" data-id="${s.id}">
+          ${thumb ? `<img class="review-thumb" src="${thumb}" alt="" loading="lazy">` : ''}
+          <div class="review-meta">
+            <span class="review-title">${escapeHtml(s.title)}</span>
+            <span class="review-sub">${escapeHtml(cat ? cat.title : 'Unknown category')} · from ${escapeHtml(s.uploaderName || 'someone')}</span>
+          </div>
+          <div class="review-actions">
+            <button type="button" class="btn-save review-approve">Approve</button>
+            <button type="button" class="admin-account-delete review-reject">Reject</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    panel.querySelectorAll('.review-approve').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.closest('.review-row').dataset.id;
+        const sub = submissions.find(s => s.id === id);
+        if(sub) approveSubmission(sub);
+      });
+    });
+    panel.querySelectorAll('.review-reject').forEach(btn => {
+      let armed = false, timer = null;
+      btn.addEventListener('click', () => {
+        if(!armed){
+          armed = true;
+          btn.textContent = 'Confirm reject';
+          btn.classList.add('is-armed');
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            armed = false; btn.textContent = 'Reject'; btn.classList.remove('is-armed');
+          }, 3000);
+          return;
+        }
+        clearTimeout(timer);
+        const id = btn.closest('.review-row').dataset.id;
+        Backend.setSubmissionStatus(id, 'rejected')
+          .catch(e => console.error('reject failed', e));
+      });
+    });
   }
 
   function renderManageAccountsPanel(){
@@ -701,7 +856,7 @@
 
   function buildMoveEl(mv, cat, mi){
     const li = document.createElement('li');
-    li.className = 'move';
+    li.className = 'move' + (mv.pendingStatus ? ' is-submission' : '');
     li.dataset.id = mv.id;
     li.dataset.title = mv.title.toLowerCase();
 
@@ -736,6 +891,11 @@
             </div>
           </div>
           <p class="move-category">${escapeHtml(cat.title)}</p>
+          ${mv.pendingStatus === 'pending'
+            ? '<p class="move-pending">Pending review — only you can see this</p>'
+            : mv.pendingStatus === 'rejected'
+              ? '<p class="move-pending is-rejected">Not added to the shared library — only you can see this</p>'
+              : ''}
           ${noteHtml}
         </div>
         <div class="move-edit-form add-form is-hidden">
@@ -874,6 +1034,84 @@
     return li;
   }
 
+  // Any logged-in member can contribute a clip here. It uploads to
+  // Cloudinary, then lands in `submissions` as pending — visible only to
+  // them until an admin approves it into the shared library.
+  function buildUploadTile(cat){
+    const li = document.createElement('li');
+    li.className = 'move upload-tile member-only';
+    li.innerHTML = `
+      <button type="button" class="add-trigger upload-trigger">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <span>Upload a clip</span>
+      </button>
+      <div class="add-form is-hidden">
+        <input type="text" class="up-title" placeholder="Move name…" autocomplete="off">
+        <textarea class="up-note" placeholder="Cue / description (optional)" rows="2"></textarea>
+        <input type="file" class="up-file" accept="video/*">
+        <div class="add-actions">
+          <button type="button" class="btn-save">Upload</button>
+          <button type="button" class="btn-cancel">Cancel</button>
+        </div>
+        <p class="up-status"></p>
+      </div>
+    `;
+    const trigger = li.querySelector('.upload-trigger');
+    const form = li.querySelector('.add-form');
+    const titleInput = li.querySelector('.up-title');
+    const noteInput = li.querySelector('.up-note');
+    const fileInput = li.querySelector('.up-file');
+    const statusEl = li.querySelector('.up-status');
+    const saveBtn = form.querySelector('.btn-save');
+
+    const reset = () => {
+      form.classList.add('is-hidden');
+      trigger.classList.remove('is-hidden');
+      titleInput.value = ''; noteInput.value = ''; fileInput.value = '';
+      statusEl.textContent = ''; statusEl.className = 'up-status';
+      saveBtn.disabled = false; saveBtn.textContent = 'Upload';
+    };
+
+    trigger.addEventListener('click', () => {
+      if(!profile){ openProfileForm(); return; }
+      trigger.classList.add('is-hidden');
+      form.classList.remove('is-hidden');
+      titleInput.focus();
+    });
+    form.querySelector('.btn-cancel').addEventListener('click', reset);
+
+    saveBtn.addEventListener('click', () => {
+      const title = titleInput.value.trim();
+      const file = fileInput.files && fileInput.files[0];
+      statusEl.className = 'up-status';
+      if(!title){ statusEl.textContent = 'Give the move a name first.'; statusEl.classList.add('is-error'); titleInput.focus(); return; }
+      if(!file){ statusEl.textContent = 'Choose a video file.'; statusEl.classList.add('is-error'); return; }
+      if(!cloudinaryReady()){ statusEl.textContent = 'Uploads are not set up yet.'; statusEl.classList.add('is-error'); return; }
+
+      saveBtn.disabled = true;
+      statusEl.textContent = 'Uploading… 0%';
+      uploadToCloudinary(file, (pct) => { statusEl.textContent = `Uploading… ${pct}%`; })
+        .then((publicId) => {
+          statusEl.textContent = 'Saving…';
+          return Backend.addSubmission({
+            title,
+            note: noteInput.value.trim(),
+            categoryId: cat.id,
+            cloudinaryId: publicId,
+            uploadedBy: profile.id,
+            uploaderName: profile.name
+          });
+        })
+        .then(() => { reset(); })
+        .catch((err) => {
+          statusEl.textContent = err.message || 'Upload failed.';
+          statusEl.classList.add('is-error');
+          saveBtn.disabled = false;
+        });
+    });
+    return li;
+  }
+
   function buildAddMoveTile(cat){
     const li = document.createElement('li');
     li.className = 'move add-move-tile admin-only';
@@ -992,6 +1230,7 @@
     const ul = section.querySelector('.moves');
     cat.moves.forEach((mv, mi) => ul.appendChild(buildMoveEl(mv, cat, mi)));
     ul.appendChild(buildAddMoveTile(cat));
+    ul.appendChild(buildUploadTile(cat));
 
     const toggleOpen = () => {
       const nowOpen = section.dataset.open !== 'true';
@@ -1105,9 +1344,31 @@
     return wrap;
   }
 
+  // The shared library, plus the current member's own clips that an admin
+  // hasn't approved yet. Approved clips live in library/structure like any
+  // other move, so they're already in `categories`.
+  function visibleCategories(){
+    if(!profile) return categories;
+    const mine = submissions.filter(s => s.uploadedBy === profile.id && s.status !== 'approved');
+    if(!mine.length) return categories;
+    return categories.map(cat => {
+      const extra = mine
+        .filter(s => s.categoryId === cat.id)
+        .map(s => ({
+          id: 'sub-' + s.id,
+          submissionId: s.id,
+          title: s.title,
+          note: s.note || '',
+          cloudinaryId: s.cloudinaryId,
+          pendingStatus: s.status
+        }));
+      return extra.length ? Object.assign({}, cat, { moves: cat.moves.concat(extra) }) : cat;
+    });
+  }
+
   function renderAll(){
     catsEl.innerHTML = '';
-    categories.forEach((cat, ci) => catsEl.appendChild(buildCategoryEl(cat, ci)));
+    visibleCategories().forEach((cat, ci) => catsEl.appendChild(buildCategoryEl(cat, ci)));
     catsEl.appendChild(buildAddCategoryEl());
     repaintAllLearned();
     repaintAllFocus();
@@ -1207,5 +1468,15 @@
     // renderAdminRow() ran at boot with no categories loaded yet, so the
     // pending-GIF count had nothing to check — recount now that they're in.
     if(isAdmin) checkPendingGifs();
+  });
+
+  Backend.watchSubmissions((list) => {
+    submissions = list;
+    renderAll();                       // own pending clips appear/disappear
+    if(isAdmin){
+      renderAdminRow();                // refresh the "Review clips (N)" count
+      const panel = document.getElementById('reviewPanel');
+      if(panel && !panel.classList.contains('is-hidden')) renderReviewPanel();
+    }
   });
 })();
