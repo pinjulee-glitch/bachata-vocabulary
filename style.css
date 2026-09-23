@@ -657,7 +657,16 @@ body.is-admin .move.is-submission .sync-note.admin-only,
   justify-content: space-between;
   gap: 6px;
 }
-.move-title{ font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.move-title{
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  /* A flex item defaults to min-width:auto, so a long unbreakable run like
+     "wrap/haircomb/step" would hold the title open and shove the reorder/
+     edit buttons outside the card, onto the next one. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .move-edit-btn{
   all: unset;
   box-sizing: border-box;
