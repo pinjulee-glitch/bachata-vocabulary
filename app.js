@@ -52,9 +52,13 @@
   // secret is involved. Abuse is limited by the preset's own format/size
   // caps, set in the Cloudinary console.
   const CLOUDINARY = {
-    cloudName: '',   // e.g. 'dxyz123ab'
-    preset: ''       // e.g. 'bachata_unsigned'
+    cloudName: 'lgr6k6ag',
+    preset: 'bachata_unsigned'
   };
+  // Checked in the browser so an oversized file fails instantly instead of
+  // after a long upload. Not a security control — Cloudinary enforces the
+  // real per-plan ceiling (see Settings → Account in its console).
+  const MAX_UPLOAD_MB = 100;
   function cloudinaryReady(){
     return !!(CLOUDINARY.cloudName && CLOUDINARY.preset);
   }
@@ -1086,6 +1090,11 @@
       statusEl.className = 'up-status';
       if(!title){ statusEl.textContent = 'Give the move a name first.'; statusEl.classList.add('is-error'); titleInput.focus(); return; }
       if(!file){ statusEl.textContent = 'Choose a video file.'; statusEl.classList.add('is-error'); return; }
+      if(file.size > MAX_UPLOAD_MB * 1024 * 1024){
+        statusEl.textContent = `That file is ${(file.size / 1024 / 1024).toFixed(0)} MB — the limit is ${MAX_UPLOAD_MB} MB.`;
+        statusEl.classList.add('is-error');
+        return;
+      }
       if(!cloudinaryReady()){ statusEl.textContent = 'Uploads are not set up yet.'; statusEl.classList.add('is-error'); return; }
 
       saveBtn.disabled = true;
