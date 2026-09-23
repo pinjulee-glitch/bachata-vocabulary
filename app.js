@@ -555,6 +555,7 @@
           <a class="admin-link" id="genGifsLink" href="${GIF_WORKFLOW_URL}" target="_blank" rel="noopener noreferrer">Generate GIFs ↗</a>
           <button type="button" class="admin-link" id="adminLogoutBtn">Admin mode on · Log out</button>
         </div>
+        <p class="admin-help">Admin tools — group moves into categories the way you'd teach them, reorder moves and categories, add moves yourself, review clips members have uploaded, and remove accounts.</p>
         <p class="admin-gif-status" id="gifPending">Checking clips…</p>
         <div class="admin-accounts-panel is-hidden" id="reviewPanel"></div>
         <div class="admin-accounts-panel is-hidden" id="manageAccountsPanel"></div>
@@ -626,13 +627,18 @@
   function approveSubmission(sub){
     const cat = categories.find(c => c.id === sub.categoryId) || categories[0];
     if(!cat){ return; }
-    cat.moves.push({
+    const move = {
       id: uid('mv'),
       title: sub.title,
       note: sub.note || '',
-      cloudinaryId: sub.cloudinaryId,
       contributedBy: sub.uploaderName || ''
-    });
+    };
+    // A submission carries exactly one of these, depending on whether the
+    // member uploaded a file or pasted a link.
+    if(sub.cloudinaryId) move.cloudinaryId = sub.cloudinaryId;
+    if(sub.driveId) move.driveId = sub.driveId;
+    if(sub.videoUrl) move.videoUrl = sub.videoUrl;
+    cat.moves.push(move);
     persistStructure();
     Backend.setSubmissionStatus(sub.id, 'approved')
       .catch(e => console.error('approve failed', e));
@@ -1053,8 +1059,10 @@
         <input type="text" class="up-title" placeholder="Move name…" autocomplete="off">
         <textarea class="up-note" placeholder="Cue / description (optional)" rows="2"></textarea>
         <input type="file" class="up-file" accept="video/*">
+        <p class="up-or">or</p>
+        <input type="url" class="up-url" inputmode="url" placeholder="Paste a Drive / YouTube link…" autocomplete="off">
         <div class="add-actions">
-          <button type="button" class="btn-save">Upload</button>
+          <button type="button" class="btn-save">Submit</button>
           <button type="button" class="btn-cancel">Cancel</button>
         </div>
         <p class="up-status"></p>
@@ -1065,15 +1073,16 @@
     const titleInput = li.querySelector('.up-title');
     const noteInput = li.querySelector('.up-note');
     const fileInput = li.querySelector('.up-file');
+    const urlInput = li.querySelector('.up-url');
     const statusEl = li.querySelector('.up-status');
     const saveBtn = form.querySelector('.btn-save');
 
     const reset = () => {
       form.classList.add('is-hidden');
       trigger.classList.remove('is-hidden');
-      titleInput.value = ''; noteInput.value = ''; fileInput.value = '';
+      titleInput.value = ''; noteInput.value = ''; fileInput.value = ''; urlInput.value = '';
       statusEl.textContent = ''; statusEl.className = 'up-status';
-      saveBtn.disabled = false; saveBtn.textContent = 'Upload';
+      saveBtn.disabled = false; saveBtn.textContent = 'Submit';
     };
 
     trigger.addEventListener('click', () => {
@@ -1087,36 +1096,52 @@
     saveBtn.addEventListener('click', () => {
       const title = titleInput.value.trim();
       const file = fileInput.files && fileInput.files[0];
-      statusEl.className = 'up-status';
-      if(!title){ statusEl.textContent = 'Give the move a name first.'; statusEl.classList.add('is-error'); titleInput.focus(); return; }
-      if(!file){ statusEl.textContent = 'Choose a video file.'; statusEl.classList.add('is-error'); return; }
-      if(file.size > MAX_UPLOAD_MB * 1024 * 1024){
-        statusEl.textContent = `That file is ${(file.size / 1024 / 1024).toFixed(0)} MB — the limit is ${MAX_UPLOAD_MB} MB.`;
+      const url = urlInput.value.trim();
+      const fail = (msg) => {
+        statusEl.textContent = msg;
         statusEl.classList.add('is-error');
+        saveBtn.disabled = false;
+      };
+      statusEl.className = 'up-status';
+
+      if(!title){ fail('Give the move a name first.'); titleInput.focus(); return; }
+      if(!file && !url){ fail('Choose a video file or paste a link.'); return; }
+      if(file && url){ fail('Use either a file or a link, not both.'); return; }
+
+      const submit = (videoFields) => Backend.addSubmission(Object.assign({
+        title,
+        note: noteInput.value.trim(),
+        categoryId: cat.id,
+        uploadedBy: profile.id,
+        uploaderName: profile.name
+      }, videoFields));
+
+      // A pasted link needs no upload — store it the same way the admin
+      // link field does, so approval turns it into an ordinary move.
+      if(url){
+        const f = videoFieldsFromInput(url);
+        if(!f.driveId && !f.videoUrl){ fail("That doesn't look like a video link."); return; }
+        saveBtn.disabled = true;
+        statusEl.textContent = 'Saving…';
+        submit(f).then(reset).catch(e => fail(e.message || 'Could not save that link.'));
         return;
       }
-      if(!cloudinaryReady()){ statusEl.textContent = 'Uploads are not set up yet.'; statusEl.classList.add('is-error'); return; }
+
+      if(file.size > MAX_UPLOAD_MB * 1024 * 1024){
+        fail(`That file is ${(file.size / 1024 / 1024).toFixed(0)} MB — the limit is ${MAX_UPLOAD_MB} MB.`);
+        return;
+      }
+      if(!cloudinaryReady()){ fail('File uploads are not set up yet — paste a link instead.'); return; }
 
       saveBtn.disabled = true;
       statusEl.textContent = 'Uploading… 0%';
       uploadToCloudinary(file, (pct) => { statusEl.textContent = `Uploading… ${pct}%`; })
         .then((publicId) => {
           statusEl.textContent = 'Saving…';
-          return Backend.addSubmission({
-            title,
-            note: noteInput.value.trim(),
-            categoryId: cat.id,
-            cloudinaryId: publicId,
-            uploadedBy: profile.id,
-            uploaderName: profile.name
-          });
+          return submit({ cloudinaryId: publicId });
         })
-        .then(() => { reset(); })
-        .catch((err) => {
-          statusEl.textContent = err.message || 'Upload failed.';
-          statusEl.classList.add('is-error');
-          saveBtn.disabled = false;
-        });
+        .then(reset)
+        .catch(err => fail(err.message || 'Upload failed.'));
     });
     return li;
   }
@@ -1369,6 +1394,8 @@
           title: s.title,
           note: s.note || '',
           cloudinaryId: s.cloudinaryId,
+          driveId: s.driveId,
+          videoUrl: s.videoUrl,
           pendingStatus: s.status
         }));
       return extra.length ? Object.assign({}, cat, { moves: cat.moves.concat(extra) }) : cat;
