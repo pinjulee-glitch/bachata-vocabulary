@@ -869,18 +869,12 @@ a.admin-link{ text-decoration: none; }
   line-height: 1.5;
   color: var(--text-dim);
 }
-.admin-gif-status{
-  margin: 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dim);
-}
-.admin-gif-status.is-pending{ color: var(--accent); }
 
-/* Upload tile — only for a logged-in member (a profile), unlike the
-   admin-only "Add move" tile. */
-.member-only{ display: none !important; }
-body.has-profile .move.upload-tile.member-only{ display: flex !important; }
+/* One contribute tile, shown to anyone who can add something: a member
+   with a profile, or an admin. */
+.contributor-only{ display: none !important; }
+body.has-profile .move.upload-tile.contributor-only,
+body.is-admin .move.upload-tile.contributor-only{ display: flex !important; }
 .upload-tile{
   align-items: center;
   justify-content: center;
