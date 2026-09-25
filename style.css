@@ -631,11 +631,14 @@ body.is-admin .move.is-submission .sync-note.admin-only,
   background: rgba(20,10,14,0.55);
   backdrop-filter: blur(1px);
 }
+/* Tucked into the bottom-right so it doesn't sit on top of the preview.
+   Top-right is taken by the focus star. */
 .clip-thumb-btn .play-badge{
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  right: 8px;
+  bottom: 8px;
+  width: 30px;
+  height: 30px;
 }
 .play-badge .play-icon{ fill: #fff; margin-left: 1px; }
 .clip-source{
